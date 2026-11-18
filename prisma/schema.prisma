@@ -1,0 +1,339 @@
+// Kastuart — Platform Festival Komik Digital
+// Database Schema v1.0
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  admin
+  participant
+}
+
+enum UserStatus {
+  active
+  inactive
+  banned
+}
+
+enum FestivalStatus {
+  draft
+  published
+  registration_closed
+  judging
+  finished
+  archived
+}
+
+enum ParticipantStatus {
+  registered
+  proposal_review
+  active
+  completed
+  disqualified
+}
+
+enum ProposalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum WorkStatus {
+  draft
+  ongoing
+  finished
+}
+
+enum SubmissionStatus {
+  pending
+  approved
+  revision
+}
+
+enum PublicationStatus {
+  unpublished
+  published
+  withdrawn
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  email     String     @unique
+  password  String
+  role      Role       @default(participant)
+  status    UserStatus @default(active)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Auth.js relations
+  accounts Account[]
+  sessions Session[]
+
+  // App relations
+  profile              ParticipantProfile?
+  festivalsCreated     Festival[]           @relation("FestivalCreatedBy")
+  festivalParticipants FestivalParticipant[]
+  submissionsReviewed  Submission[]         @relation("SubmissionReviewedBy")
+  publicationsBy       Publication[]        @relation("PublicationPublishedBy")
+  activityLogs         ActivityLog[]
+
+  @@map("users")
+}
+
+model ParticipantProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  fullname  String
+  nickname  String?
+  birthDate DateTime?
+  gender    String?
+  phone     String?
+  address   String?
+  photo     String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("participant_profiles")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  festivals Festival[]
+
+  @@map("categories")
+}
+
+model Festival {
+  id                String         @id @default(cuid())
+  categoryId        String
+  title             String
+  slug              String         @unique
+  description       String?
+  poster            String?
+  startRegistration DateTime?
+  endRegistration   DateTime?
+  startEvent        DateTime?
+  endEvent          DateTime?
+  status            FestivalStatus @default(draft)
+  createdById       String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  category     Category              @relation(fields: [categoryId], references: [id])
+  createdBy    User                  @relation("FestivalCreatedBy", fields: [createdById], references: [id])
+  stages       FestivalStage[]
+  participants FestivalParticipant[]
+
+  @@map("festivals")
+}
+
+model FestivalStage {
+  id          String   @id @default(cuid())
+  festivalId  String
+  title       String
+  description String?
+  orderNumber Int
+  deadline    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  festival    Festival     @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@map("festival_stages")
+}
+
+model FestivalParticipant {
+  id         String            @id @default(cuid())
+  festivalId String
+  userId     String
+  status     ParticipantStatus @default(registered)
+  joinedAt   DateTime          @default(now())
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  festival Festival  @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proposal Proposal?
+  work     Work?
+
+  @@unique([festivalId, userId])
+  @@map("festival_participants")
+}
+
+model Proposal {
+  id                   String         @id @default(cuid())
+  festivalParticipantId String        @unique
+  title                String
+  synopsis             String
+  story                String
+  cover                String?
+  status               ProposalStatus @default(pending)
+  reviewNote           String?
+  approvedAt           DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  festivalParticipant FestivalParticipant @relation(fields: [festivalParticipantId], references: [id], onDelete: Cascade)
+
+  @@map("proposals")
+}
+
+model Work {
+  id                   String     @id @default(cuid())
+  festivalParticipantId String    @unique
+  title                String
+  author               String
+  description          String?
+  cover                String?
+  status               WorkStatus @default(draft)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  festivalParticipant FestivalParticipant @relation(fields: [festivalParticipantId], references: [id], onDelete: Cascade)
+  submissions         Submission[]
+  publication         Publication?
+
+  @@map("works")
+}
+
+model Submission {
+  id              String           @id @default(cuid())
+  workId          String
+  festivalStageId String
+  file            String
+  fileName        String
+  fileSize        Int
+  status          SubmissionStatus @default(pending)
+  reviewNote      String?
+  submittedAt     DateTime         @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  work          Work          @relation(fields: [workId], references: [id], onDelete: Cascade)
+  festivalStage FestivalStage @relation(fields: [festivalStageId], references: [id], onDelete: Cascade)
+  reviewedBy    User?         @relation("SubmissionReviewedBy", fields: [reviewedById], references: [id])
+
+  @@map("submissions")
+}
+
+model Publication {
+  id          String            @id @default(cuid())
+  workId      String            @unique
+  status      PublicationStatus @default(unpublished)
+  publishedAt DateTime?
+  publishedById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  work        Work  @relation(fields: [workId], references: [id], onDelete: Cascade)
+  publishedBy User? @relation("PublicationPublishedBy", fields: [publishedById], references: [id])
+
+  @@map("publications")
+}
+
+model ActivityLog {
+  id             String   @id @default(cuid())
+  userId         String
+  activity       String
+  referenceTable String?
+  referenceId    String?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+model Banner {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String?
+  description String?
+  tag         String?
+  sponsorName String?
+  isSponsor   Boolean  @default(false)
+  imageUrl    String?
+  ctaText     String   @default("BACA SEKARANG")
+  ctaLink     String   @default("/festival")
+  bgGradient  String?  @default("from-slate-900 via-indigo-950 to-slate-900")
+  accentColor String?  @default("from-cyan-400 to-blue-600")
+  orderNumber Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+// ─────────────────────────────────────────────
+
+// AUTH.JS MODELS
+// ─────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}

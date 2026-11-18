@@ -201,6 +201,9 @@ Hanya karya dengan status **Dipublikasikan** yang akan muncul pada halaman Publi
 ## Aturan Sistem
 
 * Festival merupakan pusat dari seluruh sistem.
+* **Poster & Cover Gambar:** Rasio disarankan 3:4 Portrait (contoh: 600 x 800 px atau 900 x 1200 px) agar tampilan poster/cover tidak terpotong.
+* **Upload Berkas PDF Flipbook:** Berformat `.pdf` dengan ukuran maksimal 20 MB per file, disarankan rasio halaman Portrait A4 (1240 x 1754 px) atau 3:4 (1200 x 1600 px).
+* **Pembersihan Draf Berkas:** Admin dapat menghapus draf berkas PDF dari tahapan awal (sebelum tahap akhir) dari server penyimpanan untuk menghemat ruang disk.
 * Peserta harus memiliki akun.
 * Peserta wajib melengkapi biodata.
 * Peserta memilih satu acara sebelum mengirim proposal.
